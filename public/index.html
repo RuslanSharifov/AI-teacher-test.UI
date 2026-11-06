@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="az">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="theme-color" content="#0c1225" />
+  <meta name="description" content="AiTeacher API üçün şagird chat və admin test paneli" />
+  <title>AiTeacher · API Test Panel</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <div class="brand"><span class="brand-symbol">A<span>i</span></span><span><strong>AiTeacher</strong><small>API TEST CONSOLE</small></span></div>
+      <div class="top-actions"><span class="connection-tag"><span class="status-dot"></span> /api → backend</span><span id="current-user" class="user-name"></span><button id="logout" class="button button-ghost" hidden>Çıxış</button></div>
+    </header>
+    <div id="notice" class="notice" role="alert" hidden></div>
+    <section id="auth-screen" class="auth-screen">
+      <div class="auth-info"><div class="eyebrow">DEVELOPMENT WORKSPACE</div><h1>AI müəllimini<br><em>test et.</em></h1><p>Swagger əvəzinə canlı chat, interaktiv HTML form, dərs lövhəsi, səs və JSON nəticələrini bir yerdə yoxla.</p><div class="feature-chips"><span>API / JWT</span><span>HTML forms</span><span>Speech + cues</span><span>Materials</span></div></div>
+      <div class="auth-card"><span class="section-overline">HESABA GİRİŞ</span><h2 id="auth-title">Xoş gəldin</h2><p id="auth-subtitle" class="muted">Admin və ya şagird hesabı ilə daxil ol.</p>
+        <form id="auth-form"><label for="email">Email</label><input id="email" name="email" type="email" autocomplete="username" required placeholder="you@example.com" />
+          <label for="password">Şifrə</label><input id="password" name="password" type="password" autocomplete="current-password" required minlength="8" placeholder="••••••••" />
+          <button class="button button-primary button-full" type="submit" id="auth-submit">Daxil ol →</button>
+        </form>
+        <button id="switch-auth" class="link-button" type="button">Şagird hesabı yarat</button>
+        <p class="helper-text">Admin hesabı backend Development rejimində qurulur. Giriş məlumatlarını UI mənbə koduna əlavə etmə.</p>
+      </div>
+    </section>
+    <div id="workspace" class="workspace" hidden>
+      <aside class="sidebar"><div class="sidebar-caption">İŞ SAHƏSİ</div><nav id="nav" aria-label="Əsas naviqasiya"></nav><div class="sidebar-tip"><span>◉ API TEST MODE</span><p>UI sorğuları server proxy vasitəsilə backend-ə göndərir.</p></div></aside>
+      <main class="main-panel">
+        <section id="student-chat" class="page-section" hidden>
+          <div class="chat-layout">
+            <div class="threads-panel"><div class="panel-title"><h2>Söhbətlər</h2><button id="new-chat" class="button button-primary" type="button">+ Yeni</button></div><div id="thread-list" class="thread-list"></div></div>
+            <div class="chat-panel"><div class="chat-heading"><div><span class="section-overline">CANLI MÜƏLLİM</span><h2 id="chat-title">Söhbət seç</h2></div><span class="live-tag"><span class="status-dot"></span> Gemini API</span></div><div id="chat-messages" class="chat-messages" aria-live="polite"></div>
+              <form id="message-form" class="composer"><textarea id="message-input" rows="2" maxlength="2000" placeholder="Müəllimə sual yaz..." required></textarea><button id="message-send" class="button button-primary" type="submit">Göndər ↗</button></form><div id="composer-hint" class="composer-hint">Söhbət yarat və ya əvvəlki söhbəti seç.</div>
+            </div>
+          </div>
+        </section>
+        <section id="student-materials" class="page-section" hidden><div class="section-heading"><div><span class="section-overline">ŞAGİRD</span><h1>Dərs materialları</h1></div><button id="refresh-student-materials" class="button button-outline">Yenilə</button></div><div class="two-column"><div id="student-material-list" class="stack"></div><div id="student-material-content" class="content-preview empty-state">Oxumaq üçün soldan material seç.</div></div></section>
+        <section id="admin-dashboard" class="page-section" hidden><div class="section-heading"><div><span class="section-overline">ADMIN PANEL</span><h1>Statistika</h1><p class="muted">Bütün şagirdlər üzrə API göstəriciləri.</p></div><button id="refresh-stats" class="button button-outline">↻ Yenilə</button></div><div id="statistics" class="stats-grid"></div></section>
+        <section id="admin-students" class="page-section" hidden><div class="section-heading"><div><span class="section-overline">ADMIN PANEL</span><h1>Şagirdlər</h1></div><button id="refresh-students" class="button button-outline">↻ Yenilə</button></div><div class="table-wrap"><table><thead><tr><th>Email</th><th>Ad</th><th>Yaş</th><th>Məktəb</th><th>Fənn</th><th>Qeydiyyat</th></tr></thead><tbody id="students-body"></tbody></table></div></section>
+        <section id="admin-materials" class="page-section" hidden><div class="section-heading"><div><span class="section-overline">ADMIN PANEL</span><h1>Materialların idarəsi</h1><p class="muted">PDF, DOCX, TXT və MD fayllarını əlavə et (maksimum 8 MB).</p></div><button id="refresh-admin-materials" class="button button-outline">↻ Yenilə</button></div>
+          <div class="two-column upload-grid"><form id="upload-form" class="upload-card"><h3>Yeni material</h3><label for="material-title">Başlıq</label><input id="material-title" name="Title" required maxlength="160" placeholder="Məsələn: Cəbr — Bölmə 1" /><label for="material-subject">Fənn</label><input id="material-subject" name="Subject" required maxlength="80" placeholder="Riyaziyyat" /><label for="material-file">Fayl</label><input id="material-file" name="File" type="file" accept=".pdf,.docx,.txt,.md" required /><button id="upload-submit" class="button button-primary button-full" type="submit">Buluda yüklə ↑</button><p class="helper-text">Cloudinary backend-də konfiqurasiya edilməlidir.</p></form><div><h3 class="list-heading">Yüklənmiş materiallar</h3><div id="admin-material-list" class="stack"></div></div></div>
+        </section>
+      </main>
+    </div>
+  </div>
+  <script type="module" src="/main.js"></script>
+</body>
+</html>
