@@ -283,11 +283,37 @@ $("upload-form").addEventListener("submit", async (event) => {
   if (state.busy) return;
   const file = $("material-file").files?.[0];
   if (!file) return showNotice("Fayl seçilməyib.", true);
-  if (file.size > 8 * 1024 * 1024) return showNotice("8 MB-dan böyük fayl qəbul edilmir.", true);
+  if (file.size > 50 * 1024 * 1024) return showNotice("50 MB-dan böyük fayl qəbul edilmir.", true);
   $("upload-submit").disabled = true;
   try {
     await action(async () => {
-      await api("/api/admin/materials", { method: "POST", body: new FormData($("upload-form")) });
+      const form = new FormData($("upload-form"));
+      const init = await api("/api/admin/materials/direct/init", {
+        method: "POST", body: { fileName: file.name, size: file.size }
+      });
+      const upload = init.upload;
+      const cloudForm = new FormData();
+      cloudForm.set("file", file);
+      cloudForm.set("api_key", upload.apiKey);
+      cloudForm.set("timestamp", String(upload.timestamp));
+      cloudForm.set("signature", upload.signature);
+      cloudForm.set("public_id", upload.publicId);
+      cloudForm.set("type", upload.type);
+      cloudForm.set("overwrite", String(upload.overwrite));
+      const cloudResponse = await fetch(upload.uploadUrl, { method: "POST", body: cloudForm });
+      if (!cloudResponse.ok) {
+        const detail = await cloudResponse.json().catch(() => null);
+        throw new Error("Cloudinary upload xətası (" + cloudResponse.status + "): " +
+          (detail?.error?.message || "Fayl qəbul edilmədi."));
+      }
+      await api("/api/admin/materials/direct/complete", {
+        method: "POST", body: {
+          title: String(form.get("Title") || form.get("title") || ""),
+          categoryId: String(form.get("CategoryId") || form.get("categoryId") || ""),
+          fileName: file.name, size: file.size, publicId: upload.publicId,
+          timestamp: upload.timestamp, ticket: init.ticket
+        }
+      });
       $("upload-form").reset();
       showNotice("Material uğurla yükləndi.");
       await getAdminMaterials();
