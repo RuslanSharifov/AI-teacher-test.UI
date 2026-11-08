@@ -33,14 +33,30 @@ function showNotice(message, error = false) {
 function clearNotice() { $("notice").hidden = true; }
 
 function handleError(error) {
-  console.error(error);
-  const message = error instanceof ApiError
-    ? (error.status ? "HTTP " + error.status + ": " : "") + error.message
-    : (error?.message || "Naməlum xəta");
-  showNotice(message, true);
-  if (error instanceof ApiError && error.status === 401 && state.auth) {
-    logout();
-    showNotice("Sessiya bitdi. Yenidən giriş et.", true);
+  const labels = {
+    email: "E-poçt", password: "Şifrə", name: "Ad", description: "Açıqlama",
+    title: "Başlıq", categoryId: "Kateqoriya", file: "Fayl",
+    id: "ID", conversationId: "Söhbət ID", requestId: "AI sorğu ID",
+    text: "Mesaj", "form.field": "Forma sahəsi", "form.value": "Forma cavabı",
+    form: "Forma", body: "Sorğu"
+  };
+  if (error instanceof ApiError) {
+    // Show every validation error, not just the first error's message.
+    const details = Object.entries(error.errors).flatMap(([key, messages]) =>
+      (Array.isArray(messages) ? messages : [String(messages)])
+        .map(message => (labels[key] || key) + ": " + message));
+    const lines = [error.message, ...details];
+    if (error.traceId) lines.push("Sorğu ID: " + error.traceId);
+    console.error("API request failed", {
+      method: error.method, path: error.path, status: error.status,
+      code: error.code, traceId: error.traceId, errors: error.errors,
+      response: error.data
+    });
+    if (error.status === 401 && state.auth) logout();
+    showNotice(lines.join("\n"), true);
+  } else {
+    console.error("UI request failed", error);
+    showNotice(error?.message || "Gözlənilməz xəta baş verdi.", true);
   }
 }
 
@@ -205,6 +221,19 @@ async function getStudents() {
 
 async function getAdminMaterials() {
   try {
+    const categories = await api("/api/admin/categories");
+    const select = $("material-category");
+    const previous = select.value;
+    select.replaceChildren();
+    const emptyOption = node("option", "", "Kateqoriya seçin");
+    emptyOption.value = "";
+    select.appendChild(emptyOption);
+    for (const category of categories) {
+      const option = node("option", "", category.name);
+      option.value = category.id;
+      select.appendChild(option);
+    }
+    if (categories.some(x => x.id === previous)) select.value = previous;
     const materials = await api("/api/admin/materials");
     const list = $("admin-material-list");
     list.replaceChildren();
@@ -233,6 +262,22 @@ async function getAdminMaterials() {
   } catch (error) { handleError(error); }
 }
 
+$("category-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (state.busy) return;
+  try {
+    await action(async () => {
+      await api("/api/admin/categories", {
+        method: "POST",
+        body: { name: $("new-category-name").value, description: "" }
+      });
+      $("category-form").reset();
+      await getAdminMaterials();
+      showNotice("Kateqoriya yaradıldı.");
+    });
+  } catch {}
+});
+
 $("upload-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   if (state.busy) return;
@@ -253,7 +298,21 @@ $("upload-form").addEventListener("submit", async (event) => {
 
 async function getStudentMaterials() {
   try {
-    const materials = await api("/api/student/materials");
+    const categories = await api("/api/student/categories");
+    const filter = $("student-category-filter");
+    const selectedCategory = filter.value;
+    filter.replaceChildren();
+    const all = node("option", "", "Bütün kateqoriyalar");
+    all.value = "";
+    filter.appendChild(all);
+    for (const category of categories) {
+      const option = node("option", "", category.name);
+      option.value = category.id;
+      filter.appendChild(option);
+    }
+    if (categories.some(x => x.id === selectedCategory)) filter.value = selectedCategory;
+    const materials = await api("/api/student/materials" +
+      (filter.value ? "?categoryId=" + encodeURIComponent(filter.value) : ""));
     state.materials = materials;
     const list = $("student-material-list");
     list.replaceChildren();
@@ -411,6 +470,7 @@ $("refresh-stats").addEventListener("click", getStats);
 $("refresh-students").addEventListener("click", getStudents);
 $("refresh-admin-materials").addEventListener("click", getAdminMaterials);
 $("refresh-student-materials").addEventListener("click", getStudentMaterials);
+$("student-category-filter").addEventListener("change", getStudentMaterials);
 
 if (state.auth) initializeSession();
 else showAuthScreen();

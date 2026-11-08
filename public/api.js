@@ -1,12 +1,19 @@
 export class ApiError extends Error {
-  constructor(message, status, data) {
+  constructor(message, status, data, { path = "", method = "" } = {}) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.data = data;
+    this.code = data?.code || "unknown_error";
+    this.traceId = data?.traceId || "";
+    this.errors = data && typeof data.errors === "object" && !Array.isArray(data.errors)
+      ? data.errors : {};
+    this.path = path;
+    this.method = method;
   }
 }
 
+// Never log submitted credentials or uploaded file contents.
 export async function request(path, { method = "GET", body, token, signal } = {}) {
   const headers = { Accept: "application/json" };
   if (token) headers.Authorization = "Bearer " + token;
@@ -21,17 +28,19 @@ export async function request(path, { method = "GET", body, token, signal } = {}
       signal
     });
   } catch (error) {
-    throw new ApiError("API ilə əlaqə qurulmadı. Backend-in 5199 portunda işlədiyini yoxla.", 0, error);
+    if (error?.name === "AbortError") throw error;
+    throw new ApiError("API-yə qoşulmaq olmadı. Backend və şəbəkə bağlantısını yoxlayın.",
+      0, { code: "network_error", errors: {} }, { path, method });
   }
 
   const raw = await response.text();
   let data = null;
   try { data = raw ? JSON.parse(raw) : null; } catch { data = raw; }
   if (!response.ok) {
-    const message = typeof data === "object" && data !== null
-      ? data.detail || data.title || data.message || "Sorğu uğursuz oldu."
-      : String(data || "Sorğu uğursuz oldu.");
-    throw new ApiError(message, response.status, data);
+    const message = data && typeof data === "object"
+      ? data.message || data.detail || data.title || "Sorğuda xəta var."
+      : (typeof data === "string" && data.length < 400 ? data : "API sorğusu alınmadı.");
+    throw new ApiError(message, response.status, data, { path, method });
   }
   return data;
 }
